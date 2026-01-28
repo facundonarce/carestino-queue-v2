@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Link, useLocation, matchPath } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, matchPath } from 'react-router-dom';
 import { Home } from './views/Home';
 import { Booking } from './views/Booking';
 import { Admin } from './views/Admin';
@@ -11,7 +11,6 @@ import { TYPOGRAPHY } from './constants';
 const Header: React.FC = () => {
   const location = useLocation();
   
-  // Logic to show Admin link only on Home ('/') or Booking ('/:storeId')
   const isAdminPage = matchPath('/admin', location.pathname);
   const isTvPage = matchPath('/tv/:storeId', location.pathname);
   const showAdminLink = !isAdminPage && !isTvPage;
@@ -67,7 +66,7 @@ const App: React.FC = () => {
           
           <footer className="w-full text-center py-6">
             <p className="text-white font-black italic uppercase tracking-[0.2em] text-[10px] opacity-90">
-              FILA INTELIGENTE - SIN AUTENTICACIÓN
+              FILA INTELIGENTE - CARESTINO DIGITAL
             </p>
           </footer>
         </main>

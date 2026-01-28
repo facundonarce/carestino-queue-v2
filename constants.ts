@@ -13,8 +13,9 @@ export const STORES: Store[] = [
   { id: 'centro', name: 'Tienda Centro', address: 'Av. Corrientes 1234' },
   { id: 'palermo', name: 'Tienda Palermo', address: 'Honduras 4567' },
   { id: 'belgrano', name: 'Tienda Belgrano', address: 'Av. Cabildo 2345' },
-  { id: 'caballito', name: 'Tienda Caballito', address: 'Av. Rivadavia 5678' },
+  { id: 'lomas', name: 'Lomas de Zamora', address: 'España 123, Lomas' },
   { id: 'recoleta', name: 'Tienda Recoleta', address: 'Av. Santa Fe 3456' },
+  { id: 'avellaneda', name: 'Tienda Avellaneda', address: 'Av. Mitre 789' },
 ];
 
 export const TYPOGRAPHY = {

@@ -38,14 +38,13 @@ export const apiService = {
     const sb = getSupabase();
     if (!sb) return { logo: localStorage.getItem('carestino_custom_logo') };
     
-    // Intentamos obtener de la tabla de configuraciones
     const { data, error } = await sb
       .from('app_settings')
       .select('value')
       .eq('key', 'custom_logo')
-      .single();
+      .maybeSingle();
     
-    if (error) return { logo: localStorage.getItem('carestino_custom_logo') };
+    if (error || !data) return { logo: localStorage.getItem('carestino_custom_logo') };
     return { logo: data.value };
   },
 
@@ -55,12 +54,33 @@ export const apiService = {
     
     if (!sb) return;
     
-    // Guardamos en Supabase (upsert)
     const { error } = await sb
       .from('app_settings')
       .upsert({ key: 'custom_logo', value: logo }, { onConflict: 'key' });
     
     if (error) console.error("Error saving settings:", error);
+  },
+
+  // Suscripción a cambios de configuración (Logo en tiempo real)
+  subscribeToSettings(callback: (logo: string) => void) {
+    const sb = getSupabase();
+    if (!sb) return () => {};
+
+    const channel = sb.channel('global-settings')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'app_settings',
+        filter: 'key=eq.custom_logo'
+      }, (payload: any) => {
+        if (payload.new && payload.new.value) {
+          localStorage.setItem('carestino_custom_logo', payload.new.value);
+          callback(payload.new.value);
+        }
+      })
+      .subscribe();
+
+    return () => { sb.removeChannel(channel); };
   },
 
   async getQueueByStore(storeId: string): Promise<QueueEntry[]> {

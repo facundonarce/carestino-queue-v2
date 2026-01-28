@@ -18,11 +18,20 @@ const Header: React.FC = () => {
       if (settings.logo) setLogo(settings.logo);
     });
 
+    // Suscripción a cambios en DB (Realtime)
+    const unsubscribe = apiService.subscribeToSettings((newLogo) => {
+      setLogo(newLogo);
+    });
+
     const handleStorage = () => {
       setLogo(localStorage.getItem('carestino_custom_logo'));
     };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   const isTvPage = matchPath('/tv/:storeId', location.pathname);
@@ -47,7 +56,6 @@ const Header: React.FC = () => {
       </Link>
       
       <div className="flex items-center gap-4">
-        {/* Acceso a Admin oculto - Solo por URL manual /admin */}
         <button className="text-slate-900 p-1">
           <Menu size={24} />
         </button>

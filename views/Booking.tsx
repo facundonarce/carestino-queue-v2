@@ -25,9 +25,14 @@ export const Booking: React.FC = () => {
   const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
-    // Sincronizar logo global
+    // Sincronizar logo global inicial
     apiService.getGlobalSettings().then(settings => {
       if (settings.logo) setLogo(settings.logo);
+    });
+
+    // Suscripción Realtime para el logo
+    const unsubscribeLogo = apiService.subscribeToSettings((newLogo) => {
+      setLogo(newLogo);
     });
 
     if (storeId) {
@@ -36,6 +41,8 @@ export const Booking: React.FC = () => {
         setMyTicket(JSON.parse(saved));
       }
     }
+
+    return () => unsubscribeLogo();
   }, [storeId]);
 
   const fetchQueue = useCallback(async () => {

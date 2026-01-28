@@ -38,27 +38,49 @@ export const apiService = {
     const sb = getSupabase();
     if (!sb) return { logo: localStorage.getItem('carestino_custom_logo') };
     
-    const { data, error } = await sb
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'custom_logo')
-      .maybeSingle();
-    
-    if (error || !data) return { logo: localStorage.getItem('carestino_custom_logo') };
-    return { logo: data.value };
+    try {
+      const { data, error } = await sb
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'custom_logo')
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (!data) return { logo: localStorage.getItem('carestino_custom_logo') };
+      
+      return { logo: data.value };
+    } catch (e) {
+      console.warn("Error fetching from DB, using local:", e);
+      return { logo: localStorage.getItem('carestino_custom_logo') };
+    }
   },
 
   async updateGlobalSettings(logo: string): Promise<void> {
     const sb = getSupabase();
+    // Guardamos localmente para feedback inmediato
     localStorage.setItem('carestino_custom_logo', logo);
     
     if (!sb) return;
     
-    const { error } = await sb
-      .from('app_settings')
-      .upsert({ key: 'custom_logo', value: logo }, { onConflict: 'key' });
-    
-    if (error) console.error("Error saving settings:", error);
+    try {
+      const { error } = await sb
+        .from('app_settings')
+        .upsert({ 
+          key: 'custom_logo', 
+          value: logo,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      
+      if (error) {
+        if (error.message.includes("payload too large")) {
+          throw new Error("La imagen es muy pesada para la base de datos. Intenta con una más pequeña (menos de 1MB).");
+        }
+        throw error;
+      }
+    } catch (e: any) {
+      console.error("Error saving global settings:", e);
+      alert(e.message || "Error al guardar en la nube.");
+    }
   },
 
   // Suscripción a cambios de configuración (Logo en tiempo real)
@@ -66,21 +88,27 @@ export const apiService = {
     const sb = getSupabase();
     if (!sb) return () => {};
 
-    const channel = sb.channel('global-settings')
+    const channel = sb.channel('global-settings-realtime')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'app_settings',
         filter: 'key=eq.custom_logo'
       }, (payload: any) => {
-        if (payload.new && payload.new.value) {
-          localStorage.setItem('carestino_custom_logo', payload.new.value);
-          callback(payload.new.value);
+        console.log("Realtime update received:", payload);
+        const newValue = payload.new?.value;
+        if (newValue) {
+          localStorage.setItem('carestino_custom_logo', newValue);
+          callback(newValue);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Realtime subscription status:", status);
+      });
 
-    return () => { sb.removeChannel(channel); };
+    return () => {
+      sb.removeChannel(channel);
+    };
   },
 
   async getQueueByStore(storeId: string): Promise<QueueEntry[]> {

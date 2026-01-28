@@ -6,8 +6,7 @@ import { notificationService } from '../services/notification';
 import { STORES, TYPOGRAPHY, UI } from '../constants';
 import { Card, Button, Input } from '../components/Button';
 import { QueueEntry } from '../types';
-// Fixed: Added Users to the imports from lucide-react
-import { Bell, Loader2, User, AlertCircle, Mail, Send, CheckCircle2, Users } from 'lucide-react';
+import { Bell, Loader2, User, AlertCircle, Mail, Send, CheckCircle2, Users, Heart } from 'lucide-react';
 
 export const Booking: React.FC = () => {
   const { storeId } = useParams<{ storeId: string }>();
@@ -18,6 +17,7 @@ export const Booking: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [isDemo, setIsDemo] = useState(false);
+  const [isAcknowledged, setIsAcknowledged] = useState(false);
 
   // Newsletter state
   const [newsletterEmail, setNewsletterEmail] = useState('');
@@ -51,6 +51,7 @@ export const Booking: React.FC = () => {
               "¡ES TU TURNO!",
               `Por favor acércate al mostrador de ${store?.name}`
             );
+            notificationService.vibrate([500, 200, 500]);
           }
           setMyTicket(updated);
           localStorage.setItem(`carestino_ticket_${storeId}`, JSON.stringify(updated));
@@ -80,6 +81,7 @@ export const Booking: React.FC = () => {
       notificationService.requestPermission().catch(console.error);
       const ticket = await apiService.addQueueEntry(storeId, name);
       setMyTicket(ticket);
+      setIsAcknowledged(false);
       localStorage.setItem(`carestino_ticket_${storeId}`, JSON.stringify(ticket));
     } catch (err) {
       console.error("Join Queue Error:", err);
@@ -87,6 +89,12 @@ export const Booking: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFinishProcess = () => {
+    if (storeId) localStorage.removeItem(`carestino_ticket_${storeId}`);
+    setMyTicket(null);
+    setIsAcknowledged(true);
   };
 
   const handleNewsletter = async (e: React.FormEvent) => {
@@ -99,7 +107,6 @@ export const Booking: React.FC = () => {
       setNewsletterEmail('');
     } catch (err) {
       console.error("Newsletter error:", err);
-      alert("Error al suscribirse.");
     } finally {
       setSubscribing(false);
     }
@@ -114,9 +121,41 @@ export const Booking: React.FC = () => {
     </div>
   );
 
+  // Pantalla de agradecimiento final
+  if (isAcknowledged || myTicket?.status === 'finished') {
+    return (
+      <div className="max-w-md mx-auto h-full flex flex-col justify-center px-4 animate-in fade-in zoom-in duration-500">
+        <Card className="text-center flex flex-col items-center gap-10 py-16 md:py-24 rounded-[4rem]">
+          <div className="w-32 h-32 bg-orange-50 rounded-full flex items-center justify-center text-[#FF5100] shadow-xl">
+             <Heart className="w-16 h-16" fill="currentColor" />
+          </div>
+          <div className="space-y-4">
+            <h1 className={`${TYPOGRAPHY.heading} text-5xl text-slate-900`}>¡MUCHAS GRACIAS!</h1>
+            <p className="text-slate-400 font-black uppercase italic tracking-[0.2em] text-xs">
+              Esperamos que disfrutes tu experiencia en {store.name}
+            </p>
+          </div>
+          <div className="pt-8">
+            <button 
+              onClick={() => {
+                setIsAcknowledged(false);
+                setMyTicket(null);
+                if (storeId) localStorage.removeItem(`carestino_ticket_${storeId}`);
+              }}
+              className="text-[#FF5100] font-black uppercase italic tracking-widest text-[10px] hover:underline"
+            >
+              VOLVER A SACAR TURNO
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const currentBeingServed = queue.find(t => t.status === 'called')?.number || '--';
   const peopleAhead = myTicket ? queue.filter(t => t.status === 'waiting' && t.created_at < myTicket.created_at).length : 0;
 
+  // Pantalla de "Es tu turno"
   if (myTicket?.status === 'called') {
     return (
       <div className="max-w-md mx-auto h-full flex flex-col justify-center px-4 animate-in fade-in zoom-in duration-500">
@@ -136,12 +175,14 @@ export const Booking: React.FC = () => {
             </p>
           </div>
 
-          <Link to="/" onClick={() => {
-            if (storeId) localStorage.removeItem(`carestino_ticket_${storeId}`);
-            setMyTicket(null);
-          }} className="text-slate-400 font-black uppercase italic tracking-widest text-[10px] hover:text-[#FF5100] mt-4">
-            CONFIRMAR Y FINALIZAR
-          </Link>
+          <Button 
+            variant="primary" 
+            fullWidth 
+            onClick={handleFinishProcess}
+            className="!py-6 !rounded-[2rem]"
+          >
+            ENTIENDO, VOY PARA ALLÁ
+          </Button>
         </Card>
       </div>
     );
@@ -248,12 +289,15 @@ export const Booking: React.FC = () => {
             )}
           </div>
 
-          <Link to="/" onClick={() => {
-             if (storeId) localStorage.removeItem(`carestino_ticket_${storeId}`);
-             setMyTicket(null);
-          }} className="text-slate-300 font-black uppercase italic tracking-widest text-[9px] hover:text-[#FF5100] mt-2">
+          <button 
+            onClick={() => {
+               if (storeId) localStorage.removeItem(`carestino_ticket_${storeId}`);
+               setMyTicket(null);
+            }} 
+            className="text-slate-300 font-black uppercase italic tracking-widest text-[9px] hover:text-[#FF5100] mt-2"
+          >
             CANCELAR MI TURNO
-          </Link>
+          </button>
         </Card>
       )}
     </div>

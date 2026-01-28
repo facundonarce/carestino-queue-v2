@@ -8,25 +8,40 @@ export const notificationService = {
 
   sendNotification(title: string, body: string) {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: 'https://picsum.photos/100/100' });
+      try {
+        new Notification(title, { 
+          body, 
+          icon: 'https://vymftuaidjmkhtsncspb.supabase.co/storage/v1/object/public/assets/icon.png',
+          silent: false
+        });
+      } catch (e) {
+        console.warn("Error showing notification, likely on mobile browser restriction.");
+      }
     }
     this.vibrate();
   },
 
   vibrate(pattern: number | number[] = [200, 100, 200]) {
     if ('vibrate' in navigator) {
-      navigator.vibrate(pattern);
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {
+        console.warn("Vibration failed.");
+      }
     }
   },
 
   speak(text: string) {
     if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
+      // Cancelar cualquier mensaje previo
       window.speechSynthesis.cancel();
+      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'es-AR';
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.1;
+      
+      // Intentar forzar la reproducción (requiere interacción previa del usuario)
       window.speechSynthesis.speak(utterance);
     }
   }

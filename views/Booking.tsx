@@ -6,7 +6,7 @@ import { notificationService } from '../services/notification';
 import { STORES, TYPOGRAPHY } from '../constants';
 import { Card, Button, Input } from '../components/Button';
 import { QueueEntry } from '../types';
-import { Bell, Loader2, User, AlertCircle, Mail, Send, CheckCircle2, Users, Heart } from 'lucide-react';
+import { Bell, Loader2, User, AlertCircle, Mail, Send, CheckCircle2, Users, Heart, Volume2 } from 'lucide-react';
 
 export const Booking: React.FC = () => {
   const { storeId } = useParams<{ storeId: string }>();
@@ -18,6 +18,7 @@ export const Booking: React.FC = () => {
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [isAcknowledged, setIsAcknowledged] = useState(false);
   const [logo, setLogo] = useState<string | null>(localStorage.getItem('carestino_custom_logo'));
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
 
   // Newsletter state
   const [newsletterEmail, setNewsletterEmail] = useState('');
@@ -25,12 +26,10 @@ export const Booking: React.FC = () => {
   const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
-    // Sincronizar logo global inicial
     apiService.getGlobalSettings().then(settings => {
       if (settings.logo) setLogo(settings.logo);
     });
 
-    // Suscripción Realtime para el logo
     const unsubscribeLogo = apiService.subscribeToSettings((newLogo) => {
       setLogo(newLogo);
     });
@@ -55,8 +54,9 @@ export const Booking: React.FC = () => {
         const updated = data.find(t => t.id === myTicket.id);
         if (updated && updated.status !== myTicket.status) {
           if (updated.status === 'called') {
-            notificationService.sendNotification("¡ES TU TURNO!", `Mostrador de ${store?.name}`);
-            notificationService.vibrate([500, 200, 500]);
+            notificationService.sendNotification("¡ES TU TURNO!", `${myTicket.client_name}, por favor acércate al mostrador.`);
+            notificationService.vibrate([500, 200, 500, 200, 500]);
+            notificationService.speak(`${myTicket.client_name}, es tu turno. Por favor, acércate al mostrador de la sucursal ${store?.name}.`);
           }
           setMyTicket(updated);
           localStorage.setItem(`carestino_ticket_${storeId}`, JSON.stringify(updated));
@@ -92,6 +92,13 @@ export const Booking: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const enableAlerts = () => {
+    notificationService.requestPermission();
+    notificationService.vibrate([100, 50, 100]);
+    notificationService.speak("Avisos activados. Te avisaremos cuando sea tu turno.");
+    setAlertsEnabled(true);
   };
 
   const handleFinishProcess = () => {
@@ -207,9 +214,20 @@ export const Booking: React.FC = () => {
                <p className="text-2xl font-black text-slate-900">#{currentBeingServed}</p>
              </div>
           </div>
-          <Button variant="secondary" fullWidth className="flex items-center justify-center gap-2 !py-4 !rounded-2xl text-[10px] shadow-sm">
-            <Bell size={14} className="text-[#FF5100]" fill="currentColor" /> VIBRAR AL LLAMAR
+          
+          <Button 
+            variant={alertsEnabled ? "outline" : "secondary"} 
+            fullWidth 
+            onClick={enableAlerts}
+            className={`flex items-center justify-center gap-2 !py-4 !rounded-2xl text-[10px] shadow-sm transition-all ${alertsEnabled ? '!border-green-500 !text-green-600 !bg-green-50' : ''}`}
+          >
+            {alertsEnabled ? (
+              <><CheckCircle2 size={14} /> AVISOS ACTIVADOS</>
+            ) : (
+              <><Volume2 size={14} className="text-[#FF5100]" /> ACTIVAR AVISOS (VOZ Y VIBRACIÓN)</>
+            )}
           </Button>
+
           <div className="w-full bg-slate-900 p-6 rounded-[2.5rem] space-y-4 shadow-lg">
             <div className="flex items-center gap-2 text-white/30">
               <Mail size={12} />

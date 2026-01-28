@@ -1,16 +1,29 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, matchPath } from 'react-router-dom';
 import { Home } from './views/Home';
 import { Booking } from './views/Booking';
 import { Admin } from './views/Admin';
 import { TvView } from './views/TvView';
-import { Menu, Settings } from 'lucide-react';
+import { Menu, Settings as SettingsIcon } from 'lucide-react';
 import { TYPOGRAPHY } from './constants';
 
 const Header: React.FC = () => {
   const location = useLocation();
+  const [logo, setLogo] = useState<string | null>(null);
   
+  useEffect(() => {
+    const savedLogo = localStorage.getItem('carestino_custom_logo');
+    if (savedLogo) setLogo(savedLogo);
+    
+    // Escuchar cambios de logo desde Admin
+    const handleStorage = () => {
+      setLogo(localStorage.getItem('carestino_custom_logo'));
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const isAdminPage = matchPath('/admin', location.pathname);
   const isTvPage = matchPath('/tv/:storeId', location.pathname);
   const showAdminLink = !isAdminPage && !isTvPage;
@@ -18,31 +31,34 @@ const Header: React.FC = () => {
   if (isTvPage) return null;
 
   return (
-    <header className="bg-white px-6 py-4 flex justify-between items-center w-full sticky top-0 z-50 shadow-sm">
-      <Link to="/" className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-[#FF5100] rounded-xl flex items-center justify-center shadow-lg shadow-orange-200">
-           <svg viewBox="0 0 24 24" className="w-6 h-6 text-white fill-current">
-             <path d="M18 10V7c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v3c1.1 0 2 .9 2 2s-.9 2-2 2v3c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-3c-1.1 0-2-.9-2-2s.9-2 2-2zM8 17v-1.5c1.1 0 2-.9 2-2s-.9-2-2-2V7h8v4.5c-1.1 0-2 .9-2 2s.9 2 2 2V17H8z" />
-           </svg>
+    <header className="bg-white px-4 py-3 flex justify-between items-center w-full sticky top-0 z-50 shadow-sm border-b border-slate-50">
+      <Link to="/" className="flex items-center gap-2">
+        <div className="w-8 h-8 bg-[#FF5100] rounded-lg flex items-center justify-center shadow-md overflow-hidden">
+          {logo ? (
+            <img src={logo} alt="Logo" className="w-full h-full object-cover" />
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white fill-current">
+              <path d="M18 10V7c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v3c1.1 0 2 .9 2 2s-.9 2-2 2v3c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-3c-1.1 0-2-.9-2-2s.9-2 2-2zM8 17v-1.5c1.1 0 2-.9 2-2s-.9-2-2-2V7h8v4.5c-1.1 0-2 .9-2 2s.9 2 2 2V17H8z" />
+            </svg>
+          )}
         </div>
-        <div className="flex items-baseline">
-          <span className={`${TYPOGRAPHY.heading} text-2xl text-[#0f172a]`}>CARESTINO</span>
-          <span className={`${TYPOGRAPHY.heading} text-2xl text-[#FF5100] ml-1`}>APP</span>
+        <div className="flex flex-col leading-none">
+          <span className="font-black italic uppercase tracking-tighter text-sm text-[#0f172a]">CARESTINO</span>
+          <span className="font-bold uppercase tracking-widest text-[8px] text-[#FF5100]">RESERVA DE TURNOS</span>
         </div>
       </Link>
       
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
         {showAdminLink && (
           <Link 
             to="/admin" 
-            className={`${TYPOGRAPHY.subheading} hover:text-[#FF5100] transition-colors flex items-center gap-2`}
+            className="text-slate-400 hover:text-[#FF5100] transition-colors p-2"
           >
-            <Settings size={16} />
-            <span>ADMIN</span>
+            <SettingsIcon size={18} />
           </Link>
         )}
-        <button className="text-slate-900 p-2">
-          <Menu size={32} />
+        <button className="text-slate-900 p-1">
+          <Menu size={24} />
         </button>
       </div>
     </header>
@@ -52,10 +68,10 @@ const Header: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
-      <div className="min-h-screen bg-[#FF5100] flex flex-col font-sans">
+      <div className="min-h-screen bg-[#FF5100] flex flex-col font-sans overflow-x-hidden">
         <Header />
         <main className="flex-1 flex flex-col relative">
-          <div className="flex-1 p-6 md:p-12">
+          <div className="flex-1 p-4 md:p-8 lg:p-12">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/admin" element={<Admin />} />
@@ -64,8 +80,8 @@ const App: React.FC = () => {
             </Routes>
           </div>
           
-          <footer className="w-full text-center py-6">
-            <p className="text-white font-black italic uppercase tracking-[0.2em] text-[10px] opacity-90">
+          <footer className="w-full text-center py-4">
+            <p className="text-white font-black italic uppercase tracking-[0.2em] text-[8px] opacity-70">
               FILA INTELIGENTE - CARESTINO DIGITAL
             </p>
           </footer>

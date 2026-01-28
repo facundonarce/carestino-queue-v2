@@ -22,124 +22,47 @@ export const getSupabase = () => {
   }
 };
 
-const mockDb = {
-  getEntries(storeId: string): QueueEntry[] {
-    const saved = localStorage.getItem(`mock_queue_${storeId}`);
-    return saved ? JSON.parse(saved) : [];
-  },
-  saveEntries(storeId: string, entries: QueueEntry[]) {
-    localStorage.setItem(`mock_queue_${storeId}`, JSON.stringify(entries));
-  }
-};
-
 export const apiService = {
-  // Configuración Global (Logo, etc)
   async getGlobalSettings(): Promise<{ logo: string | null }> {
     const sb = getSupabase();
     if (!sb) return { logo: localStorage.getItem('carestino_custom_logo') };
-    
     try {
-      const { data, error } = await sb
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'custom_logo')
-        .maybeSingle();
-      
+      const { data, error } = await sb.from('app_settings').select('value').eq('key', 'custom_logo').maybeSingle();
       if (error) throw error;
-      if (!data) return { logo: localStorage.getItem('carestino_custom_logo') };
-      
-      return { logo: data.value };
+      return { logo: data?.value || localStorage.getItem('carestino_custom_logo') };
     } catch (e) {
-      console.warn("Error fetching from DB, using local:", e);
       return { logo: localStorage.getItem('carestino_custom_logo') };
     }
   },
 
   async updateGlobalSettings(logo: string): Promise<void> {
     const sb = getSupabase();
-    // Guardamos localmente para feedback inmediato
     localStorage.setItem('carestino_custom_logo', logo);
-    
     if (!sb) return;
-    
-    try {
-      const { error } = await sb
-        .from('app_settings')
-        .upsert({ 
-          key: 'custom_logo', 
-          value: logo,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'key' });
-      
-      if (error) {
-        if (error.message.includes("payload too large")) {
-          throw new Error("La imagen es muy pesada para la base de datos. Intenta con una más pequeña (menos de 1MB).");
-        }
-        throw error;
-      }
-    } catch (e: any) {
-      console.error("Error saving global settings:", e);
-      alert(e.message || "Error al guardar en la nube.");
-    }
+    const { error } = await sb.from('app_settings').upsert({ key: 'custom_logo', value: logo, updated_at: new Date().toISOString() });
+    if (error) throw error;
   },
 
-  // Suscripción a cambios de configuración (Logo en tiempo real)
   subscribeToSettings(callback: (logo: string) => void) {
     const sb = getSupabase();
     if (!sb) return () => {};
-
-    const channel = sb.channel('global-settings-realtime')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'app_settings',
-        filter: 'key=eq.custom_logo'
-      }, (payload: any) => {
-        console.log("Realtime update received:", payload);
-        const newValue = payload.new?.value;
-        if (newValue) {
-          localStorage.setItem('carestino_custom_logo', newValue);
-          callback(newValue);
-        }
-      })
-      .subscribe((status) => {
-        console.log("Realtime subscription status:", status);
-      });
-
-    return () => {
-      sb.removeChannel(channel);
-    };
+    const channel = sb.channel('global-settings-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.custom_logo' }, (payload: any) => {
+      const newValue = payload.new?.value;
+      if (newValue) { callback(newValue); }
+    }).subscribe();
+    return () => { sb.removeChannel(channel); };
   },
 
   async getQueueByStore(storeId: string): Promise<QueueEntry[]> {
     const sb = getSupabase();
-    if (!sb) return mockDb.getEntries(storeId);
-    const { data, error } = await sb
-      .from('queue_entries')
-      .select('*')
-      .eq('store_id', storeId)
-      .order('created_at', { ascending: true });
-    if (error) return mockDb.getEntries(storeId);
+    if (!sb) return [];
+    const { data, error } = await sb.from('queue_entries').select('*').eq('store_id', storeId).order('created_at', { ascending: true });
     return data || [];
   },
 
   async addQueueEntry(storeId: string, clientName: string): Promise<QueueEntry> {
     const sb = getSupabase();
-    if (!sb) {
-      const entries = mockDb.getEntries(storeId);
-      const nextNumber = (entries.length > 0 ? Math.max(...entries.map(e => e.number)) : 0) + 1;
-      const newEntry: QueueEntry = {
-        id: crypto.randomUUID(),
-        store_id: storeId,
-        client_name: clientName,
-        number: nextNumber,
-        status: 'waiting',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      mockDb.saveEntries(storeId, [...entries, newEntry]);
-      return newEntry;
-    }
+    if (!sb) throw new Error("Offline");
     const { data: latest } = await sb.from('queue_entries').select('number').eq('store_id', storeId).order('number', { ascending: false }).limit(1);
     const nextNumber = (latest?.[0]?.number || 0) + 1;
     const { data, error } = await sb.from('queue_entries').insert([{ store_id: storeId, client_name: clientName, number: nextNumber, status: 'waiting' }]).select().single();
@@ -149,85 +72,64 @@ export const apiService = {
 
   async updateStatus(id: string, status: QueueStatus): Promise<void> {
     const sb = getSupabase();
-    const now = new Date().toISOString();
-    if (!sb) {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('mock_queue_')) {
-          const entries: QueueEntry[] = JSON.parse(localStorage.getItem(key) || '[]');
-          const idx = entries.findIndex(e => e.id === id);
-          if (idx !== -1) {
-            entries[idx].status = status;
-            entries[idx].updated_at = now;
-            localStorage.setItem(key, JSON.stringify(entries));
-            break;
-          }
-        }
-      }
-      return;
-    }
-    const { error } = await sb.from('queue_entries').update({ status, updated_at: now }).eq('id', id);
-    if (error) console.error(error);
+    if (!sb) return;
+    await sb.from('queue_entries').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
   },
 
   async callNext(storeId: string): Promise<QueueEntry | null> {
     const sb = getSupabase();
-    if (!sb) {
-      const entries = mockDb.getEntries(storeId);
-      const nextIdx = entries.findIndex(e => e.status === 'waiting');
-      if (nextIdx === -1) return null;
-      entries[nextIdx].status = 'called';
-      entries[nextIdx].updated_at = new Date().toISOString();
-      mockDb.saveEntries(storeId, entries);
-      return entries[nextIdx];
-    }
+    if (!sb) return null;
     const { data: waiting } = await sb.from('queue_entries').select('*').eq('store_id', storeId).eq('status', 'waiting').order('created_at', { ascending: true }).limit(1);
-    if (!waiting || waiting.length === 0) return null;
+    if (!waiting?.length) return null;
     const entry = waiting[0];
     await this.updateStatus(entry.id, 'called');
     return entry;
   },
 
   async getAllStats(): Promise<StoreStats[]> {
-    const stats: StoreStats[] = [];
-    for (const store of STORES) {
-      const entries = await this.getQueueByStore(store.id);
-      const finished = entries.filter(e => e.status === 'finished');
-      const waiting = entries.filter(e => e.status === 'waiting');
-      let totalTime = 0;
+    const sb = getSupabase();
+    if (!sb) return [];
+    
+    // Obtenemos todos los turnos del día para calcular métricas
+    const { data: entries, error } = await sb.from('queue_entries').select('*');
+    if (error) return [];
+
+    return STORES.map(store => {
+      const storeEntries = entries.filter(e => e.store_id === store.id);
+      const finished = storeEntries.filter(e => e.status === 'finished');
+      const waiting = storeEntries.filter(e => e.status === 'waiting');
+      const beingServed = storeEntries.filter(e => e.status === 'called');
+      
+      let totalMinutes = 0;
       finished.forEach(e => {
         if (e.updated_at) {
-          const start = new Date(e.created_at).getTime();
-          const end = new Date(e.updated_at).getTime();
-          totalTime += (end - start);
+          const diff = (new Date(e.updated_at).getTime() - new Date(e.created_at).getTime()) / 60000;
+          totalMinutes += diff;
         }
       });
-      const avg = finished.length > 0 ? (totalTime / finished.length / 60000).toFixed(1) : "0";
-      stats.push({
+
+      return {
         storeId: store.id,
         storeName: store.name,
         servedToday: finished.length,
-        avgWaitTime: avg,
+        avgWaitTime: finished.length > 0 ? (totalMinutes / finished.length).toFixed(1) : "0",
         peopleWaiting: waiting.length,
-        totalEntries: entries.length
-      });
-    }
-    return stats;
+        totalEntries: storeEntries.length,
+        // Extendemos el tipo implícitamente para el Dashboard
+        beingServed: beingServed.length
+      } as any;
+    });
+  },
+
+  subscribeToStoreChanges(storeId: string, callback: () => void) {
+    const sb = getSupabase();
+    if (!sb) return () => {};
+    const channel = sb.channel(`store-${storeId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `store_id=eq.${storeId}` }, callback).subscribe();
+    return () => { sb.removeChannel(channel); };
   },
 
   async subscribeNewsletter(email: string): Promise<void> {
     const sb = getSupabase();
-    if (!sb) return;
-    await sb.from('newsletter').insert([{ email }]);
-  },
-
-  subscribeToStoreChanges(storeId: string, callback: (payload: any) => void) {
-    const sb = getSupabase();
-    if (!sb) {
-      const interval = setInterval(() => callback({}), 2000);
-      return () => clearInterval(interval);
-    }
-    const channel = sb.channel(`store-${storeId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'queue_entries', filter: `store_id=eq.${storeId}` }, callback).subscribe();
-    return () => { sb.removeChannel(channel); };
+    if (sb) await sb.from('newsletter').insert([{ email }]);
   }
 };

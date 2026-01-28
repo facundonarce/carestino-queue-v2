@@ -4,7 +4,6 @@ import { apiService } from '../services/api';
 import { STORES, TYPOGRAPHY, UI } from '../constants';
 import { Card, Button, Input } from '../components/Button';
 import { QueueEntry, StoreStats } from '../types';
-// Added missing Loader2 import
 import { 
   User, ChevronDown, Plus, UserCheck, Lock, LogOut, Trash2, 
   CheckCircle2, Clock, BarChart3, LayoutGrid, Users, Timer, 
@@ -73,24 +72,58 @@ export const Admin: React.FC = () => {
   };
 
   const handleSaveSettings = async () => {
+    if (!customLogo) return;
     setLoading(true);
     try {
       await apiService.updateGlobalSettings(customLogo);
-      window.dispatchEvent(new Event('storage'));
-      alert('Logo actualizado y sincronizado en todos los dispositivos');
+      alert('Logo actualizado y sincronizado en la nube');
     } catch (e) {
-      alert('Error al guardar. Intenta con un archivo más liviano.');
+      alert('Error al guardar. Intenta con una imagen más pequeña.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Función para redimensionar la imagen antes de subirla
+  const resizeImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400;
+        const MAX_HEIGHT = 400;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/webp', 0.8)); // WebP para máximo ahorro de espacio
+      };
+    });
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { alert("Archivo muy pesado (máx 2MB)"); return; }
       const reader = new FileReader();
-      reader.onloadend = () => setCustomLogo(reader.result as string);
+      reader.onloadend = async () => {
+        const resized = await resizeImage(reader.result as string);
+        setCustomLogo(resized);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -207,7 +240,7 @@ export const Admin: React.FC = () => {
           <Card className="p-10 space-y-10 rounded-[3rem]">
             <div className="flex items-center gap-4">
                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-[#FF5100]"><Settings size={32} /></div>
-               <div><h3 className={`${TYPOGRAPHY.heading} text-2xl text-slate-900 leading-none`}>SINCRONIZACIÓN DE MARCA</h3><p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] mt-1">Este logo se aplicará en todos los dispositivos</p></div>
+               <div><h3 className={`${TYPOGRAPHY.heading} text-2xl text-slate-900 leading-none`}>SINCRONIZACIÓN DE MARCA</h3><p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] mt-1">Este logo optimizado se sincronizará en todos los dispositivos</p></div>
             </div>
             <div className="space-y-8">
                <div className="space-y-4">
@@ -221,14 +254,14 @@ export const Admin: React.FC = () => {
                     <div className="p-6 bg-slate-50 rounded-[2rem] flex flex-col items-center gap-4">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">VISTA PREVIA</p>
                       <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden border-2 border-white">
-                        {customLogo ? <img src={customLogo} alt="Preview" className="w-full h-full object-cover" /> : <ImageIcon size={24} className="text-slate-200" />}
+                        {customLogo ? <img src={customLogo} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon size={24} className="text-slate-200" />}
                       </div>
                     </div>
                  </div>
                </div>
                <div className="flex gap-4">
                  <Button fullWidth onClick={handleSaveSettings} disabled={loading} className="!py-5 flex items-center justify-center gap-2">
-                    {loading ? <Loader2 className="animate-spin" /> : <><Save size={18} /> APLICAR LOGO GLOBAL</>}
+                    {loading ? <Loader2 className="animate-spin" /> : <><Save size={18} /> GUARDAR LOGO NUBE</>}
                  </Button>
                  <button onClick={() => { setCustomLogo(''); localStorage.removeItem('carestino_custom_logo'); }} className="px-6 py-5 bg-slate-100 text-slate-400 rounded-3xl hover:bg-slate-200"><RefreshCw size={20} /></button>
                </div>

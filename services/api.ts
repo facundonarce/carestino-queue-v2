@@ -8,7 +8,6 @@ let supabaseInstance: SupabaseClient | null = null;
 export const getSupabase = () => {
   if (supabaseInstance) return supabaseInstance;
   
-  // En Vercel, estas variables se configuran en el Dashboard
   const url = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://vymftuaidjmkhtsncspb.supabase.co';
   const key = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bWZ0dWFpZGpta2h0c25jc3BiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk2MTMyMzgsImV4cCI6MjA4NTE4OTIzOH0.p99yMFtBUrC7MpBwYobnnagV9O8MIZw8zc-KmoxpePQ';
   
@@ -34,6 +33,36 @@ const mockDb = {
 };
 
 export const apiService = {
+  // Configuración Global (Logo, etc)
+  async getGlobalSettings(): Promise<{ logo: string | null }> {
+    const sb = getSupabase();
+    if (!sb) return { logo: localStorage.getItem('carestino_custom_logo') };
+    
+    // Intentamos obtener de la tabla de configuraciones
+    const { data, error } = await sb
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'custom_logo')
+      .single();
+    
+    if (error) return { logo: localStorage.getItem('carestino_custom_logo') };
+    return { logo: data.value };
+  },
+
+  async updateGlobalSettings(logo: string): Promise<void> {
+    const sb = getSupabase();
+    localStorage.setItem('carestino_custom_logo', logo);
+    
+    if (!sb) return;
+    
+    // Guardamos en Supabase (upsert)
+    const { error } = await sb
+      .from('app_settings')
+      .upsert({ key: 'custom_logo', value: logo }, { onConflict: 'key' });
+    
+    if (error) console.error("Error saving settings:", error);
+  },
+
   async getQueueByStore(storeId: string): Promise<QueueEntry[]> {
     const sb = getSupabase();
     if (!sb) return mockDb.getEntries(storeId);
@@ -113,14 +142,10 @@ export const apiService = {
 
   async getAllStats(): Promise<StoreStats[]> {
     const stats: StoreStats[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     for (const store of STORES) {
       const entries = await this.getQueueByStore(store.id);
       const finished = entries.filter(e => e.status === 'finished');
       const waiting = entries.filter(e => e.status === 'waiting');
-
       let totalTime = 0;
       finished.forEach(e => {
         if (e.updated_at) {
@@ -130,7 +155,6 @@ export const apiService = {
         }
       });
       const avg = finished.length > 0 ? (totalTime / finished.length / 60000).toFixed(1) : "0";
-
       stats.push({
         storeId: store.id,
         storeName: store.name,
@@ -146,7 +170,7 @@ export const apiService = {
   async subscribeNewsletter(email: string): Promise<void> {
     const sb = getSupabase();
     if (!sb) return;
-    const { error } = await sb.from('newsletter').insert([{ email }]);
+    await sb.from('newsletter').insert([{ email }]);
   },
 
   subscribeToStoreChanges(storeId: string, callback: (payload: any) => void) {

@@ -5,18 +5,19 @@ import { Home } from './views/Home';
 import { Booking } from './views/Booking';
 import { Admin } from './views/Admin';
 import { TvView } from './views/TvView';
-import { Menu, Settings as SettingsIcon } from 'lucide-react';
-import { TYPOGRAPHY } from './constants';
+import { Menu } from 'lucide-react';
+import { apiService } from './services/api';
 
 const Header: React.FC = () => {
   const location = useLocation();
-  const [logo, setLogo] = useState<string | null>(null);
+  const [logo, setLogo] = useState<string | null>(localStorage.getItem('carestino_custom_logo'));
   
   useEffect(() => {
-    const savedLogo = localStorage.getItem('carestino_custom_logo');
-    if (savedLogo) setLogo(savedLogo);
-    
-    // Escuchar cambios de logo desde Admin
+    // Carga inicial sincronizada
+    apiService.getGlobalSettings().then(settings => {
+      if (settings.logo) setLogo(settings.logo);
+    });
+
     const handleStorage = () => {
       setLogo(localStorage.getItem('carestino_custom_logo'));
     };
@@ -24,10 +25,7 @@ const Header: React.FC = () => {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const isAdminPage = matchPath('/admin', location.pathname);
   const isTvPage = matchPath('/tv/:storeId', location.pathname);
-  const showAdminLink = !isAdminPage && !isTvPage;
-
   if (isTvPage) return null;
 
   return (
@@ -49,14 +47,7 @@ const Header: React.FC = () => {
       </Link>
       
       <div className="flex items-center gap-4">
-        {showAdminLink && (
-          <Link 
-            to="/admin" 
-            className="text-slate-400 hover:text-[#FF5100] transition-colors p-2"
-          >
-            <SettingsIcon size={18} />
-          </Link>
-        )}
+        {/* Acceso a Admin oculto - Solo por URL manual /admin */}
         <button className="text-slate-900 p-1">
           <Menu size={24} />
         </button>

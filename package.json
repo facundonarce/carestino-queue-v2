@@ -1,0 +1,16 @@
+
+{
+  "name": "carestino-queue",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "mkdir -p dist && cp -r * dist/ 2>/dev/null || true",
+    "preview": "npx serve ."
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "serve": "^14.2.0"
+  }
+}

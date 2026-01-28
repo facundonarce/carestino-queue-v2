@@ -1,11 +1,20 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# Carestino Digital Queue 🎟️
 
-  <h1>Built with AI Studio</h2>
+Sistema de gestión de filas premium para sucursales Carestino.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 🚀 Características
+- **Real-time**: Actualizaciones instantáneas vía Supabase.
+- **TV View**: Pantalla para locales con anuncios por voz (TTS).
+- **Admin Panel**: Gestión total de turnos y estadísticas globales.
+- **No-Build Architecture**: Usa import maps para una carga ultrarrápida sin pasos de compilación pesados.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## 🛠️ Configuración
+Para correr localmente o desplegar:
+1. Clonar el repositorio.
+2. Configurar variables de entorno:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+3. Ejecutar `npm run dev`.
 
-</div>
+Desarrollado con ❤️ para Carestino.

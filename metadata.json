@@ -1,0 +1,7 @@
+{
+  "name": "Carestino Digital Queue",
+  "description": "Premium digital queue management system for Carestino stores with real-time updates and notifications.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
 import { STORES, TYPOGRAPHY, UI } from '../constants';
 import { Card, Button, Input } from '../components/Button';
@@ -8,7 +8,7 @@ import {
   User, ChevronDown, Plus, UserCheck, Lock, LogOut, Trash2, 
   CheckCircle2, Clock, BarChart3, LayoutGrid, Users, Timer, 
   TrendingUp, X, UserPlus, Monitor, Settings, Image as ImageIcon,
-  Save, RefreshCw
+  Save, RefreshCw, Upload
 } from 'lucide-react';
 
 type AdminView = 'store' | 'dashboard' | 'settings';
@@ -26,6 +26,7 @@ export const Admin: React.FC = () => {
   
   // Settings state
   const [customLogo, setCustomLogo] = useState(localStorage.getItem('carestino_custom_logo') || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedStore = STORES.find(s => s.id === selectedStoreId);
 
@@ -74,9 +75,28 @@ export const Admin: React.FC = () => {
   };
 
   const handleSaveSettings = () => {
-    localStorage.setItem('carestino_custom_logo', customLogo);
-    window.dispatchEvent(new Event('storage'));
-    alert('Configuración guardada correctamente');
+    try {
+      localStorage.setItem('carestino_custom_logo', customLogo);
+      window.dispatchEvent(new Event('storage'));
+      alert('Configuración guardada correctamente');
+    } catch (e) {
+      alert('La imagen es demasiado grande. Intenta con un archivo más pequeño (menor a 2MB).');
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("La imagen es muy pesada. Máximo 2MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomLogo(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleCallNext = async () => {
@@ -329,18 +349,40 @@ export const Admin: React.FC = () => {
                </div>
             </div>
 
-            <div className="space-y-6">
-               <div className="space-y-2">
+            <div className="space-y-8">
+               <div className="space-y-4">
                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                   <ImageIcon size={14} /> URL DEL LOGO
+                   <Upload size={14} /> CARGAR LOGO DESDE COMPUTADORA
                  </label>
-                 <Input 
-                   placeholder="https://tu-sitio.com/logo.png"
-                   value={customLogo}
-                   onChange={(e) => setCustomLogo(e.target.value)}
-                   className="!py-4 !text-sm"
-                 />
-                 <p className="text-[9px] text-slate-400 italic">Este logo aparecerá en el encabezado y en el ticket de los clientes.</p>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-slate-200 rounded-[2rem] hover:border-[#FF5100] hover:bg-orange-50 transition-all group"
+                    >
+                      <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:text-[#FF5100] group-hover:bg-white shadow-sm">
+                        <Upload size={24} />
+                      </div>
+                      <span className="font-black italic uppercase tracking-widest text-[10px] text-slate-400 group-hover:text-[#FF5100]">Seleccionar Archivo</span>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                      />
+                    </button>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-300">O usar URL externa</label>
+                      <Input 
+                        placeholder="https://..."
+                        value={customLogo.startsWith('data:') ? '' : customLogo}
+                        onChange={(e) => setCustomLogo(e.target.value)}
+                        className="!py-3 !text-xs !rounded-xl"
+                      />
+                    </div>
+                 </div>
                </div>
 
                <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-4">
@@ -356,7 +398,7 @@ export const Admin: React.FC = () => {
 
                <div className="flex gap-4">
                  <Button fullWidth onClick={handleSaveSettings} className="!py-5 flex items-center justify-center gap-2">
-                    <Save size={18} /> GUARDAR CAMBIOS
+                    <Save size={18} /> APLICAR LOGO
                  </Button>
                  <button 
                    onClick={() => { setCustomLogo(''); localStorage.removeItem('carestino_custom_logo'); window.dispatchEvent(new Event('storage')); }}
